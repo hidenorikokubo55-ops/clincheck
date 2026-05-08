@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>クリンチェック 進行管理</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; }
+  .app { max-width: 1300px; margin: 0 auto; padding: 2rem 1rem; }
+
+  h1 { font-size: 22px; font-weight: 600; color: #1a1a1a; }
+  .subtitle { font-size: 13px; color: #888; margin-top: 3px; }
+
+  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat { background: #fff; border-radius: 10px; padding: 8px 14px; text-align: center; border: 1px solid #e8e8e4; }
+  .stat-num { font-size: 20px; font-weight: 600; }
+  .stat-lbl { font-size: 11px; color: #888; margin-top: 1px; }
+
+  .btn-add { background: #1a1a1a; color: #fff; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn-add:hover { background: #333; }
+
+  .alert-banner { background: #fff8e1; border: 1px solid #ffe082; border-radius: 12px; padding: 12px 16px; margin-bottom: 1.25rem; display: none; }
+  .alert-banner.show { display: block; }
+  .alert-title { font-size: 13px; font-weight: 600; color: #7a4c00; margin-bottom: 6px; }
+  .alert-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .alert-list li { font-size: 12px; color: #7a4c00; display: flex; align-items: center; gap: 6px; }
+  .alert-dot { width: 6px; height: 6px; border-radius: 50%; background: #e07800; flex-shrink: 0; }
+  .alert-dot.red { background: #d32f2f; }
+
+  .sort-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .sort-bar span { font-size: 12px; color: #888; }
+  .sort-btn { background: #fff; border: 1px solid #e8e8e4; border-radius: 8px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #666; }
+  .sort-btn:hover { border-color: #aaa; color: #1a1a1a; }
+  .sort-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  .setup-panel { background: #fff; border: 1px solid #e8e8e4; border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .setup-panel h2 { font-size: 15px; font-weight: 600; margin-bottom: 0.5rem; }
+  .setup-desc { font-size: 13px; color: #888; margin-bottom: 1rem; }
+  .setup-fields { display: flex; flex-direction: column; gap: 8px; }
+  .setup-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .setup-row label { font-size: 12px; color: #666; min-width: 90px; font-weight: 500; }
+  .setup-row input { flex: 1; min-width: 220px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'SF Mono', monospace; background: #fafaf8; color: #1a1a1a; }
+  .setup-row input:focus { outline: none; border-color: #1a1a1a; }
+  .setup-bottom { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+  .btn-connect { background: #1a1a1a; color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-connect:hover { background: #333; }
+  .status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #888; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+  .dot.connected { background: #4caf50; }
+  .dot.error { background: #f44336; }
+  .dot.connecting { background: #ff9800; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .sync-time { font-size: 11px; color: #4caf50; margin-left: auto; }
+
+  .table-card { background: #fff; border: 1px solid #e8e8e4; border-radius: 14px; overflow: hidden; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1000px; }
+  thead tr { border-bottom: 1px solid #f0f0ec; }
+  th { padding: 11px 14px; text-align: left; font-weight: 500; font-size: 11px; color: #999; background: #fafaf8; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: #555; }
+  th.sorted { color: #1a1a1a; }
+  th.no-sort { cursor: default; }
+  th.no-sort:hover { color: #999; }
+  .sort-icon { margin-left: 3px; font-size: 10px; }
+
+  tbody tr { border-bottom: 1px solid #f5f5f0; transition: background 0.12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  tbody tr.approved { background: #f0f9e8; }
+  tbody tr.approved:hover { background: #e6f5d8; }
+  tbody tr.alert-over { background: #fff5f5; }
+  tbody tr.alert-over:hover { background: #ffe8e8; }
+  tbody tr.alert-near { background: #fff8e8; }
+  tbody tr.alert-near:hover { background: #fff0d0; }
+  td { padding: 10px 14px; vertical-align: middle; white-space: nowrap; }
+  tbody tr { height: auto; }
+  .patient-name { font-weight: 600; font-size: 14px; }
+  .date-cell { color: #666; white-space: nowrap; }
+  .deadline-near { color: #e07800; font-weight: 600; }
+  .deadline-over { color: #d32f2f; font-weight: 600; }
+  .check-wrap { text-align: center; vertical-align: middle; }
+  input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; accent-color: #1a1a1a; }
+
+  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-approved  { background: #d4edba; color: #2d6a0e; }
+  .badge-arrived   { background: #dbeeff; color: #1a4f8a; }
+  .badge-fixing    { background: #fde8b0; color: #7a4c00; }
+  .badge-pending   { background: #efefeb; color: #888; }
+
+  .memo-cell { max-width: 180px; cursor: pointer; }
+  .memo-text { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; display: block; }
+  .btn-memo { background: none; border: 1px dashed #ddd; border-radius: 6px; padding: 3px 8px; font-size: 11px; color: #aaa; cursor: pointer; white-space: nowrap; }
+  .btn-memo:hover { border-color: #aaa; color: #666; }
+
+  .btn-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 15px; padding: 4px 8px; border-radius: 6px; }
+  .btn-del:hover { background: #fdecea; color: #d32f2f; }
+  .empty { text-align: center; padding: 3.5rem; color: #aaa; font-size: 14px; }
+
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+  .modal { background: #fff; border-radius: 16px; padding: 1.75rem; width: 400px; max-width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+  .modal h2 { font-size: 17px; font-weight: 600; margin-bottom: 1.25rem; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; color: #666; font-weight: 500; margin-bottom: 5px; }
+  .form-group input, .form-group textarea { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 9px; font-size: 14px; background: #fafaf8; color: #1a1a1a; font-family: inherit; }
+  .form-group textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #1a1a1a; background: #fff; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.5rem; }
+  .btn-cancel { background: none; border: 1px solid #ddd; border-radius: 9px; padding: 9px 18px; font-size: 13px; cursor: pointer; color: #666; }
+  .btn-cancel:hover { background: #f5f5f0; }
+  .btn-save { background: #1a1a1a; color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-save:hover { background: #333; }
+
+  @media (prefers-color-scheme: dark) {
+    body { background: #111; color: #f0f0f0; }
+    .stat, .setup-panel, .table-card, .modal { background: #1e1e1e; border-color: #2e2e2e; }
+    th { background: #191919; color: #666; }
+    th.sorted { color: #f0f0f0; }
+    tbody tr:hover { background: #252525; }
+    tbody tr.approved { background: #1a2e12; }
+    tbody tr.approved:hover { background: #223a18; }
+    tbody tr.alert-over { background: #2e1a1a; }
+    tbody tr.alert-near { background: #2e2510; }
+    .badge-approved  { background: #223a18; color: #8bc34a; }
+    .badge-arrived   { background: #0d2d4a; color: #7ec8ff; }
+    .badge-fixing    { background: #3a2800; color: #ffb74d; }
+    .badge-pending   { background: #2a2a2a; color: #666; }
+    .setup-row input, .form-group input, .form-group textarea { background: #252525; border-color: #333; color: #f0f0f0; }
+    .setup-row input:focus, .form-group input:focus, .form-group textarea:focus { border-color: #888; }
+    .alert-banner { background: #2a2200; border-color: #5a4000; }
+    .alert-title, .alert-list li { color: #ffb74d; }
+    .btn-cancel { border-color: #333; color: #aaa; }
+    h1, .stat-num { color: #f0f0f0; }
+    .deadline-near { color: #ffb74d; }
+    .deadline-over { color: #ef5350; }
+    tbody tr { border-bottom-color: #252525; }
+    .sort-btn { background: #1e1e1e; border-color: #333; color: #888; }
+    .sort-btn.active { background: #f0f0f0; color: #111; border-color: #f0f0f0; }
+    .memo-text { color: #aaa; }
+    .btn-memo { border-color: #333; color: #555; }
+  }
+  @media (max-width: 600px) {
+    .app { padding: 1rem 0.75rem; }
+    h1 { font-size: 18px; }
+    .header { flex-direction: column; }
+    .header-right { width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>クリンチェック 進行管理</h1>
+      <p class="subtitle">インビザライン治療計画の承認状況を管理</p>
+    </div>
+    <div class="header-right">
+      <div class="stats">
+        <div class="stat"><div class="stat-num" id="s-total">0</div><div class="stat-lbl">総患者数</div></div>
+        <div class="stat"><div class="stat-num" id="s-fixing" style="color:#e07800">0</div><div class="stat-lbl">修正中</div></div>
+        <div class="stat"><div class="stat-num" id="s-arrived" style="color:#1a6fc4">0</div><div class="stat-lbl">到着済み</div></div>
+        <div class="stat"><div class="stat-num" id="s-approved" style="color:#4caf50">0</div><div class="stat-lbl">承認済み</div></div>
+        <div class="stat"><div class="stat-num" id="s-alert" style="color:#d32f2f">0</div><div class="stat-lbl">要注意</div></div>
+      </div>
+      <button class="btn-add" onclick="openModal()">＋ 患者を追加</button>
+    </div>
+  </div>
+
+  <div class="alert-banner" id="alert-banner">
+    <div class="alert-title">⚠️ 期限アラート</div>
+    <ul class="alert-list" id="alert-list"></ul>
+  </div>
+
+  <div class="setup-panel">
+    <h2>🔗 Supabase 接続設定</h2>
+    <p class="setup-desc">Project URL と Anon Key を入力して「接続する」を押してください。次回以降は自動で接続されます。</p>
+    <div class="setup-fields">
+      <div class="setup-row">
+        <label>Project URL</label>
+        <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co" />
+      </div>
+      <div class="setup-row">
+        <label>Anon Key</label>
+        <input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." />
+      </div>
+      <div class="setup-bottom">
+        <button class="btn-connect" onclick="connect()">接続する</button>
+        <div class="status">
+          <div class="dot" id="status-dot"></div>
+          <span id="status-text">未接続</span>
+        </div>
+        <span class="sync-time" id="sync-time"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sort-bar">
+    <span>並び替え：</span>
+    <button class="sort-btn active" id="sb-created"  onclick="setSort('created_at')">登録順</button>
+    <button class="sort-btn"        id="sb-deadline" onclick="setSort('deadline_date')">締め切り日順</button>
+    <button class="sort-btn"        id="sb-appoint"  onclick="setSort('appoint_date')">アポイント日順</button>
+    <button class="sort-btn"        id="sb-name"     onclick="setSort('name')">氏名順</button>
+    <button class="sort-btn"        id="sb-status"   onclick="setSort('status')">状態順</button>
+  </div>
+
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="setSort('name')">患者氏名<span class="sort-icon" id="icon-name"></span></th>
+            <th onclick="setSort('impression_date')">印象採得日<span class="sort-icon" id="icon-impression_date"></span></th>
+            <th onclick="setSort('appoint_date')">アポイント日<span class="sort-icon" id="icon-appoint_date"></span></th>
+            <th onclick="setSort('deadline_date')">完成締め切り<span class="sort-icon" id="icon-deadline_date"></span></th>
+            <th class="no-sort" style="text-align:center">修正中</th>
+            <th class="no-sort" style="text-align:center">承認済み</th>
+            <th class="no-sort" style="text-align:center">到着済み</th>
+            <th class="no-sort" style="text-align:center">状態</th>
+            <th class="no-sort">メモ</th>
+            <th class="no-sort"></th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="10" class="empty">Supabaseに接続すると患者データが表示されます</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 患者追加/編集モーダル -->
+<div class="modal-overlay" id="modal" style="display:none">
+  <div class="modal">
+    <h2 id="modal-title">患者を追加</h2>
+    <div class="form-group"><label>患者氏名</label><input type="text" id="f-name" placeholder="例：田中 花子" /></div>
+    <div class="form-group"><label>印象採得日</label><input type="date" id="f-impression" /></div>
+    <div class="form-group"><label>アポイント日</label><input type="date" id="f-appoint" /></div>
+    <div class="form-group"><label>完成締め切り日</label><input type="date" id="f-deadline" /></div>
+    <div class="form-group"><label>メモ（修正内容など）</label><textarea id="f-memo" placeholder="例：上顎前歯のトルク修正、アタッチメント位置変更..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-save" id="modal-save-btn" onclick="savePatient()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- メモ編集モーダル -->
+<div class="modal-overlay" id="memo-modal" style="display:none">
+  <div class="modal">
+    <h2 id="memo-title">メモを編集</h2>
+    <div class="form-group"><label>メモ（修正内容など）</label><textarea id="f-memo-edit" placeholder="例：上顎前歯のトルク修正..." style="min-height:120px"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeMemoModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveMemo()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let SB_URL = localStorage.getItem('sb_url') || '';
+let SB_KEY = localStorage.getItem('sb_key') || '';
+let patients = [];
+let connected = false;
+let pollTimer = null;
+let sortKey = 'created_at';
+let sortDir = 'asc';
+let editingId = null;
+let memoEditId = null;
+
+if (SB_URL) document.getElementById('sb-url').value = SB_URL;
+if (SB_KEY) document.getElementById('sb-key').value = SB_KEY;
+
+function setStatus(state, msg) {
+  document.getElementById('status-dot').className = 'dot ' + state;
+  document.getElementById('status-text').textContent = msg;
+}
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(SB_URL + '/rest/v1/' + path, {
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation'
+    },
+    method: opts.method || 'GET',
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+async function loadPatients() {
+  const data = await apiFetch('clincheck?order=created_at.asc');
+  patients = data.map(r => ({
+    id: r.id, name: r.name,
+    impression: r.impression_date, appoint: r.appoint_date,
+    deadline: r.deadline_date, fixing: r.fixing, approved: r.approved,
+    arrived: r.arrived || false,
+    memo: r.memo || '', created_at: r.created_at
+  }));
+  render();
+  const now = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('sync-time').textContent = '最終同期 ' + now;
+}
+
+async function connect() {
+  SB_URL = document.getElementById('sb-url').value.trim().replace(/\/$/, '');
+  SB_KEY = document.getElementById('sb-key').value.trim();
+  if (!SB_URL || !SB_KEY) { setStatus('error', 'URLとKeyを入力してください'); return; }
+  setStatus('connecting', '接続中...');
+  try {
+    await loadPatients();
+    localStorage.setItem('sb_url', SB_URL);
+    localStorage.setItem('sb_key', SB_KEY);
+    connected = true;
+    setStatus('connected', '接続済み — 自動同期中');
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(() => { if (connected) loadPatients(); }, 10000);
+  } catch(e) {
+    setStatus('error', '接続失敗：URLとKeyを確認してください');
+  }
+}
+
+function fmt(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${y}/${m}/${day}`;
+}
+
+function getDiff(d) {
+  if (!d) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return (new Date(d) - today) / 86400000;
+}
+
+function deadlineClass(d, approved) {
+  if (!d || approved) return '';
+  const diff = getDiff(d);
+  if (diff < 0) return 'deadline-over';
+  if (diff <= 7) return 'deadline-near';
+  return '';
+}
+
+function rowAlertClass(p) {
+  if (p.approved) return 'approved';
+  if (p.deadline) {
+    const diff = getDiff(p.deadline);
+    if (diff < 0) return 'alert-over';
+    if (diff <= 7) return 'alert-near';
+  }
+  return '';
+}
+
+// 状態バッジ：承認済み > 到着済み > 修正中 > 未処理
+function getBadge(p) {
+  if (p.approved) return '<span class="badge badge-approved">✓ 承認済み</span>';
+  if (p.arrived)  return '<span class="badge badge-arrived">📦 到着済み</span>';
+  if (p.fixing)   return '<span class="badge badge-fixing">修正中</span>';
+  return '<span class="badge badge-pending">未処理</span>';
+}
+
+function setSort(key) {
+  const btnMap = { created_at:'sb-created', deadline_date:'sb-deadline', appoint_date:'sb-appoint', name:'sb-name', status:'sb-status' };
+  if (sortKey === key) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+  else { sortKey = key; sortDir = 'asc'; }
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  if (btnMap[key]) document.getElementById(btnMap[key]).classList.add('active');
+  ['name','impression_date','appoint_date','deadline_date'].forEach(k => {
+    const el = document.getElementById('icon-' + k);
+    if (el) { el.textContent = ''; el.closest('th').classList.remove('sorted'); }
+  });
+  const iconEl = document.getElementById('icon-' + key);
+  if (iconEl) { iconEl.textContent = sortDir === 'asc' ? ' ↑' : ' ↓'; iconEl.closest('th').classList.add('sorted'); }
+  render();
+}
+
+function getSorted() {
+  return [...patients].sort((a, b) => {
+    let av, bv;
+    if (sortKey === 'status') {
+      // 承認済み4 > 到着済み3 > 修正中2 > 未処理1
+      const sc = p => p.approved ? 4 : p.arrived ? 3 : p.fixing ? 2 : 1;
+      av = sc(a); bv = sc(b);
+    } else if (sortKey === 'name')          { av = a.name;            bv = b.name; }
+    else if (sortKey === 'deadline_date')   { av = a.deadline || 'zzz'; bv = b.deadline || 'zzz'; }
+    else if (sortKey === 'appoint_date')    { av = a.appoint  || 'zzz'; bv = b.appoint  || 'zzz'; }
+    else if (sortKey === 'impression_date') { av = a.impression|| 'zzz'; bv = b.impression|| 'zzz'; }
+    else                                    { av = a.created_at|| '';   bv = b.created_at|| ''; }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+}
+
+function updateAlerts() {
+  const alerts = [];
+  patients.forEach(p => {
+    if (p.approved) return;
+    if (p.deadline) {
+      const diff = getDiff(p.deadline);
+      if (diff < 0) alerts.push({ name: p.name, msg: `締め切り ${Math.abs(Math.round(diff))}日超過`, red: true });
+      else if (diff <= 7) alerts.push({ name: p.name, msg: `締め切りまで残り${Math.round(diff)}日`, red: false });
+    }
+    if (p.appoint) {
+      const diff = getDiff(p.appoint);
+      if (diff >= 0 && diff <= 7) alerts.push({ name: p.name, msg: `アポイントまで残り${Math.round(diff)}日`, red: false });
+    }
+  });
+  document.getElementById('s-alert').textContent = alerts.filter(a => a.red).length;
+  const banner = document.getElementById('alert-banner');
+  if (alerts.length > 0) {
+    banner.classList.add('show');
+    document.getElementById('alert-list').innerHTML = alerts.map(a =>
+      `<li><span class="alert-dot${a.red?' red':''}"></span><strong>${a.name}</strong> — ${a.msg}</li>`
+    ).join('');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+function render() {
+  const sorted = getSorted();
+  const tbody = document.getElementById('table-body');
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">患者データがありません。「＋ 患者を追加」から登録してください。</td></tr>';
+  } else {
+    tbody.innerHTML = sorted.map(p => {
+      const dc  = deadlineClass(p.deadline, p.approved);
+      const rc  = rowAlertClass(p);
+      const memoHtml = p.memo
+        ? `<span class="memo-text" title="${p.memo.replace(/"/g,'&quot;')}">${p.memo}</span>`
+        : `<button class="btn-memo" onclick="event.stopPropagation();openMemoModal('${p.id}')">＋ メモ</button>`;
+      return `<tr class="${rc}"><td class="patient-name">${p.name}</td><td class="date-cell">${fmt(p.impression)}</td><td class="date-cell">${fmt(p.appoint)}</td><td class="date-cell ${dc}">${fmt(p.deadline)}</td><td class="check-wrap"><input type="checkbox" ${p.fixing?'checked':''} ${p.approved?'disabled':''} onchange="toggle('${p.id}','fixing',this.checked)"></td><td class="check-wrap"><input type="checkbox" ${p.approved?'checked':''} onchange="toggle('${p.id}','approved',this.checked)"></td><td class="check-wrap"><input type="checkbox" ${p.arrived?'checked':''} ${p.approved?'disabled':''} onchange="toggle('${p.id}','arrived',this.checked)"></td><td>${getBadge(p)}</td><td class="memo-cell" onclick="openMemoModal('${p.id}')">${memoHtml}</td><td><button class="btn-del" onclick="del('${p.id}')">✕</button></td></tr>`;
+    }).join('');
+  }
+  document.getElementById('s-total').textContent   = patients.length;
+  document.getElementById('s-fixing').textContent  = patients.filter(p => p.fixing && !p.approved).length;
+  document.getElementById('s-arrived').textContent = patients.filter(p => p.arrived && !p.approved).length;
+  document.getElementById('s-approved').textContent= patients.filter(p => p.approved).length;
+  updateAlerts();
+}
+
+async function toggle(id, field, val) {
+  const p = patients.find(p => p.id === id);
+  if (!p) return;
+  p[field] = val;
+  // 承認済みにしたら修正中・到着済みをリセット
+  if (field === 'approved' && val) { p.fixing = false; p.arrived = false; }
+  render();
+  try {
+    const body = { [field]: val };
+    if (field === 'approved' && val) { body.fixing = false; body.arrived = false; }
+    await apiFetch('clincheck?id=eq.' + id, { method: 'PATCH', body, prefer: 'return=minimal' });
+  } catch(e) { console.error(e); }
+}
+
+async function del(id) {
+  if (!confirm('この患者データを削除しますか？')) return;
+  patients = patients.filter(p => p.id !== id);
+  render();
+  try { await apiFetch('clincheck?id=eq.' + id, { method: 'DELETE', prefer: 'return=minimal' }); }
+  catch(e) { console.error(e); }
+}
+
+function openModal(id) {
+  if (!connected) { alert('先にSupabaseに接続してください'); return; }
+  editingId = id || null;
+  if (id) {
+    const p = patients.find(p => p.id === id);
+    document.getElementById('modal-title').textContent = '患者情報を編集';
+    document.getElementById('modal-save-btn').textContent = '更新';
+    document.getElementById('f-name').value       = p.name;
+    document.getElementById('f-impression').value = p.impression || '';
+    document.getElementById('f-appoint').value    = p.appoint    || '';
+    document.getElementById('f-deadline').value   = p.deadline   || '';
+    document.getElementById('f-memo').value       = p.memo       || '';
+  } else {
+    document.getElementById('modal-title').textContent = '患者を追加';
+    document.getElementById('modal-save-btn').textContent = '保存';
+    ['f-name','f-impression','f-appoint','f-deadline','f-memo'].forEach(i => document.getElementById(i).value = '');
+  }
+  document.getElementById('modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('f-name').focus(), 50);
+}
+
+function closeModal() { document.getElementById('modal').style.display = 'none'; editingId = null; }
+
+async function savePatient() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').focus(); return; }
+  const body = {
+    name,
+    impression_date: document.getElementById('f-impression').value || null,
+    appoint_date:    document.getElementById('f-appoint').value    || null,
+    deadline_date:   document.getElementById('f-deadline').value   || null,
+    memo:            document.getElementById('f-memo').value.trim()
+  };
+  closeModal();
+  try {
+    if (editingId) {
+      await apiFetch('clincheck?id=eq.' + editingId, { method: 'PATCH', body, prefer: 'return=minimal' });
+    } else {
+      body.fixing = false; body.approved = false; body.arrived = false;
+      await apiFetch('clincheck', { method: 'POST', body });
+    }
+    await loadPatients();
+  } catch(e) { console.error(e); }
+}
+
+function openMemoModal(id) {
+  memoEditId = id;
+  const p = patients.find(p => p.id === id);
+  document.getElementById('memo-title').textContent = p.name + ' — メモ';
+  document.getElementById('f-memo-edit').value = p.memo || '';
+  document.getElementById('memo-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('f-memo-edit').focus(), 50);
+}
+function closeMemoModal() { document.getElementById('memo-modal').style.display = 'none'; memoEditId = null; }
+
+async function saveMemo() {
+  const memo = document.getElementById('f-memo-edit').value.trim();
+  const p = patients.find(p => p.id === memoEditId);
+  if (p) p.memo = memo;
+  closeMemoModal(); render();
+  try { await apiFetch('clincheck?id=eq.' + memoEditId, { method: 'PATCH', body: { memo }, prefer: 'return=minimal' }); }
+  catch(e) { console.error(e); }
+}
+
+document.getElementById('modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+document.getElementById('memo-modal').addEventListener('click', function(e) { if (e.target === this) closeMemoModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeMemoModal(); } });
+
+if (SB_URL && SB_KEY) connect();
+</script>
+</body>
+</html>
