@@ -7,7 +7,7 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; }
-  .app { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+  .app { max-width: 1300px; margin: 0 auto; padding: 2rem 1rem; }
 
   h1 { font-size: 22px; font-weight: 600; color: #1a1a1a; }
   .subtitle { font-size: 13px; color: #888; margin-top: 3px; }
@@ -15,7 +15,7 @@
   .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
   .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-  .stats { display: flex; gap: 8px; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
   .stat { background: #fff; border-radius: 10px; padding: 8px 14px; text-align: center; border: 1px solid #e8e8e4; }
   .stat-num { font-size: 20px; font-weight: 600; }
   .stat-lbl { font-size: 11px; color: #888; margin-top: 1px; }
@@ -58,12 +58,15 @@
 
   .table-card { background: #fff; border: 1px solid #e8e8e4; border-radius: 14px; overflow: hidden; }
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1000px; }
   thead tr { border-bottom: 1px solid #f0f0ec; }
   th { padding: 11px 14px; text-align: left; font-weight: 500; font-size: 11px; color: #999; background: #fafaf8; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; cursor: pointer; user-select: none; }
   th:hover { color: #555; }
   th.sorted { color: #1a1a1a; }
+  th.no-sort { cursor: default; }
+  th.no-sort:hover { color: #999; }
   .sort-icon { margin-left: 3px; font-size: 10px; }
+
   tbody tr { border-bottom: 1px solid #f5f5f0; transition: background 0.12s; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: #fafaf8; }
@@ -80,14 +83,18 @@
   .deadline-over { color: #d32f2f; font-weight: 600; }
   .check-wrap { display: flex; justify-content: center; }
   input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; accent-color: #1a1a1a; }
+
   .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-  .badge-approved { background: #d4edba; color: #2d6a0e; }
-  .badge-fixing { background: #fde8b0; color: #7a4c00; }
-  .badge-pending { background: #efefeb; color: #888; }
-  .memo-cell { max-width: 200px; cursor: pointer; }
-  .memo-text { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; display: block; }
+  .badge-approved  { background: #d4edba; color: #2d6a0e; }
+  .badge-arrived   { background: #dbeeff; color: #1a4f8a; }
+  .badge-fixing    { background: #fde8b0; color: #7a4c00; }
+  .badge-pending   { background: #efefeb; color: #888; }
+
+  .memo-cell { max-width: 180px; cursor: pointer; }
+  .memo-text { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; display: block; }
   .btn-memo { background: none; border: 1px dashed #ddd; border-radius: 6px; padding: 3px 8px; font-size: 11px; color: #aaa; cursor: pointer; white-space: nowrap; }
   .btn-memo:hover { border-color: #aaa; color: #666; }
+
   .btn-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 15px; padding: 4px 8px; border-radius: 6px; }
   .btn-del:hover { background: #fdecea; color: #d32f2f; }
   .empty { text-align: center; padding: 3.5rem; color: #aaa; font-size: 14px; }
@@ -116,9 +123,10 @@
     tbody tr.approved:hover { background: #223a18; }
     tbody tr.alert-over { background: #2e1a1a; }
     tbody tr.alert-near { background: #2e2510; }
-    .badge-approved { background: #223a18; color: #8bc34a; }
-    .badge-fixing { background: #3a2800; color: #ffb74d; }
-    .badge-pending { background: #2a2a2a; color: #666; }
+    .badge-approved  { background: #223a18; color: #8bc34a; }
+    .badge-arrived   { background: #0d2d4a; color: #7ec8ff; }
+    .badge-fixing    { background: #3a2800; color: #ffb74d; }
+    .badge-pending   { background: #2a2a2a; color: #666; }
     .setup-row input, .form-group input, .form-group textarea { background: #252525; border-color: #333; color: #f0f0f0; }
     .setup-row input:focus, .form-group input:focus, .form-group textarea:focus { border-color: #888; }
     .alert-banner { background: #2a2200; border-color: #5a4000; }
@@ -152,6 +160,7 @@
       <div class="stats">
         <div class="stat"><div class="stat-num" id="s-total">0</div><div class="stat-lbl">総患者数</div></div>
         <div class="stat"><div class="stat-num" id="s-fixing" style="color:#e07800">0</div><div class="stat-lbl">修正中</div></div>
+        <div class="stat"><div class="stat-num" id="s-arrived" style="color:#1a6fc4">0</div><div class="stat-lbl">到着済み</div></div>
         <div class="stat"><div class="stat-num" id="s-approved" style="color:#4caf50">0</div><div class="stat-lbl">承認済み</div></div>
         <div class="stat"><div class="stat-num" id="s-alert" style="color:#d32f2f">0</div><div class="stat-lbl">要注意</div></div>
       </div>
@@ -189,11 +198,11 @@
 
   <div class="sort-bar">
     <span>並び替え：</span>
-    <button class="sort-btn active" id="sb-created" onclick="setSort('created_at')">登録順</button>
-    <button class="sort-btn" id="sb-deadline" onclick="setSort('deadline_date')">締め切り日順</button>
-    <button class="sort-btn" id="sb-appoint" onclick="setSort('appoint_date')">アポイント日順</button>
-    <button class="sort-btn" id="sb-name" onclick="setSort('name')">氏名順</button>
-    <button class="sort-btn" id="sb-status" onclick="setSort('status')">状態順</button>
+    <button class="sort-btn active" id="sb-created"  onclick="setSort('created_at')">登録順</button>
+    <button class="sort-btn"        id="sb-deadline" onclick="setSort('deadline_date')">締め切り日順</button>
+    <button class="sort-btn"        id="sb-appoint"  onclick="setSort('appoint_date')">アポイント日順</button>
+    <button class="sort-btn"        id="sb-name"     onclick="setSort('name')">氏名順</button>
+    <button class="sort-btn"        id="sb-status"   onclick="setSort('status')">状態順</button>
   </div>
 
   <div class="table-card">
@@ -205,21 +214,23 @@
             <th onclick="setSort('impression_date')">印象採得日<span class="sort-icon" id="icon-impression_date"></span></th>
             <th onclick="setSort('appoint_date')">アポイント日<span class="sort-icon" id="icon-appoint_date"></span></th>
             <th onclick="setSort('deadline_date')">完成締め切り<span class="sort-icon" id="icon-deadline_date"></span></th>
-            <th style="text-align:center;cursor:default">修正中</th>
-            <th style="text-align:center;cursor:default">承認済み</th>
-            <th style="text-align:center;cursor:default">状態</th>
-            <th style="cursor:default">メモ</th>
-            <th></th>
+            <th class="no-sort" style="text-align:center">修正中</th>
+            <th class="no-sort" style="text-align:center">承認済み</th>
+            <th class="no-sort" style="text-align:center">到着済み</th>
+            <th class="no-sort" style="text-align:center">状態</th>
+            <th class="no-sort">メモ</th>
+            <th class="no-sort"></th>
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr><td colspan="9" class="empty">Supabaseに接続すると患者データが表示されます</td></tr>
+          <tr><td colspan="10" class="empty">Supabaseに接続すると患者データが表示されます</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<!-- 患者追加/編集モーダル -->
 <div class="modal-overlay" id="modal" style="display:none">
   <div class="modal">
     <h2 id="modal-title">患者を追加</h2>
@@ -235,6 +246,7 @@
   </div>
 </div>
 
+<!-- メモ編集モーダル -->
 <div class="modal-overlay" id="memo-modal" style="display:none">
   <div class="modal">
     <h2 id="memo-title">メモを編集</h2>
@@ -287,6 +299,7 @@ async function loadPatients() {
     id: r.id, name: r.name,
     impression: r.impression_date, appoint: r.appoint_date,
     deadline: r.deadline_date, fixing: r.fixing, approved: r.approved,
+    arrived: r.arrived || false,
     memo: r.memo || '', created_at: r.created_at
   }));
   render();
@@ -342,6 +355,14 @@ function rowAlertClass(p) {
   return '';
 }
 
+// 状態バッジ：承認済み > 到着済み > 修正中 > 未処理
+function getBadge(p) {
+  if (p.approved) return '<span class="badge badge-approved">✓ 承認済み</span>';
+  if (p.arrived)  return '<span class="badge badge-arrived">📦 到着済み</span>';
+  if (p.fixing)   return '<span class="badge badge-fixing">修正中</span>';
+  return '<span class="badge badge-pending">未処理</span>';
+}
+
 function setSort(key) {
   const btnMap = { created_at:'sb-created', deadline_date:'sb-deadline', appoint_date:'sb-appoint', name:'sb-name', status:'sb-status' };
   if (sortKey === key) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
@@ -361,15 +382,16 @@ function getSorted() {
   return [...patients].sort((a, b) => {
     let av, bv;
     if (sortKey === 'status') {
-      const sc = p => p.approved ? 3 : p.fixing ? 2 : 1;
+      // 承認済み4 > 到着済み3 > 修正中2 > 未処理1
+      const sc = p => p.approved ? 4 : p.arrived ? 3 : p.fixing ? 2 : 1;
       av = sc(a); bv = sc(b);
-    } else if (sortKey === 'name') { av = a.name; bv = b.name; }
-    else if (sortKey === 'deadline_date') { av = a.deadline || 'zzz'; bv = b.deadline || 'zzz'; }
-    else if (sortKey === 'appoint_date') { av = a.appoint || 'zzz'; bv = b.appoint || 'zzz'; }
-    else if (sortKey === 'impression_date') { av = a.impression || 'zzz'; bv = b.impression || 'zzz'; }
-    else { av = a.created_at || ''; bv = b.created_at || ''; }
+    } else if (sortKey === 'name')          { av = a.name;            bv = b.name; }
+    else if (sortKey === 'deadline_date')   { av = a.deadline || 'zzz'; bv = b.deadline || 'zzz'; }
+    else if (sortKey === 'appoint_date')    { av = a.appoint  || 'zzz'; bv = b.appoint  || 'zzz'; }
+    else if (sortKey === 'impression_date') { av = a.impression|| 'zzz'; bv = b.impression|| 'zzz'; }
+    else                                    { av = a.created_at|| '';   bv = b.created_at|| ''; }
     if (av < bv) return sortDir === 'asc' ? -1 : 1;
-    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    if (av > bv) return sortDir === 'asc' ?  1 : -1;
     return 0;
   });
 }
@@ -390,10 +412,9 @@ function updateAlerts() {
   });
   document.getElementById('s-alert').textContent = alerts.filter(a => a.red).length;
   const banner = document.getElementById('alert-banner');
-  const list = document.getElementById('alert-list');
   if (alerts.length > 0) {
     banner.classList.add('show');
-    list.innerHTML = alerts.map(a =>
+    document.getElementById('alert-list').innerHTML = alerts.map(a =>
       `<li><span class="alert-dot${a.red?' red':''}"></span><strong>${a.name}</strong> — ${a.msg}</li>`
     ).join('');
   } else {
@@ -402,17 +423,14 @@ function updateAlerts() {
 }
 
 function render() {
-  const tbody = document.getElementById('table-body');
   const sorted = getSorted();
+  const tbody = document.getElementById('table-body');
   if (!sorted.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">患者データがありません。「＋ 患者を追加」から登録してください。</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">患者データがありません。「＋ 患者を追加」から登録してください。</td></tr>';
   } else {
     tbody.innerHTML = sorted.map(p => {
-      const dc = deadlineClass(p.deadline, p.approved);
-      const rc = rowAlertClass(p);
-      let badge = '<span class="badge badge-pending">未処理</span>';
-      if (p.approved) badge = '<span class="badge badge-approved">✓ 承認済み</span>';
-      else if (p.fixing) badge = '<span class="badge badge-fixing">修正中</span>';
+      const dc  = deadlineClass(p.deadline, p.approved);
+      const rc  = rowAlertClass(p);
       const memoHtml = p.memo
         ? `<span class="memo-text" title="${p.memo.replace(/"/g,'&quot;')}">${p.memo}</span>`
         : `<button class="btn-memo" onclick="event.stopPropagation();openMemoModal('${p.id}')">＋ メモ</button>`;
@@ -421,17 +439,19 @@ function render() {
         <td class="date-cell">${fmt(p.impression)}</td>
         <td class="date-cell">${fmt(p.appoint)}</td>
         <td class="date-cell ${dc}">${fmt(p.deadline)}</td>
-        <td class="check-wrap"><input type="checkbox" ${p.fixing?'checked':''} ${p.approved?'disabled':''} onchange="toggle('${p.id}','fixing',this.checked)" /></td>
-        <td class="check-wrap"><input type="checkbox" ${p.approved?'checked':''} onchange="toggle('${p.id}','approved',this.checked)" /></td>
-        <td>${badge}</td>
+        <td class="check-wrap"><input type="checkbox" ${p.fixing?'checked':''} ${p.approved?'disabled':''} onchange="toggle('${p.id}','fixing',this.checked)"></td>
+        <td class="check-wrap"><input type="checkbox" ${p.approved?'checked':''} onchange="toggle('${p.id}','approved',this.checked)"></td>
+        <td class="check-wrap"><input type="checkbox" ${p.arrived?'checked':''} ${p.approved?'disabled':''} onchange="toggle('${p.id}','arrived',this.checked)"></td>
+        <td>${getBadge(p)}</td>
         <td class="memo-cell" onclick="openMemoModal('${p.id}')">${memoHtml}</td>
         <td><button class="btn-del" onclick="del('${p.id}')">✕</button></td>
       </tr>`;
     }).join('');
   }
-  document.getElementById('s-total').textContent = patients.length;
-  document.getElementById('s-fixing').textContent = patients.filter(p => p.fixing && !p.approved).length;
-  document.getElementById('s-approved').textContent = patients.filter(p => p.approved).length;
+  document.getElementById('s-total').textContent   = patients.length;
+  document.getElementById('s-fixing').textContent  = patients.filter(p => p.fixing && !p.approved).length;
+  document.getElementById('s-arrived').textContent = patients.filter(p => p.arrived && !p.approved).length;
+  document.getElementById('s-approved').textContent= patients.filter(p => p.approved).length;
   updateAlerts();
 }
 
@@ -439,11 +459,12 @@ async function toggle(id, field, val) {
   const p = patients.find(p => p.id === id);
   if (!p) return;
   p[field] = val;
-  if (field === 'approved' && val) p.fixing = false;
+  // 承認済みにしたら修正中・到着済みをリセット
+  if (field === 'approved' && val) { p.fixing = false; p.arrived = false; }
   render();
   try {
     const body = { [field]: val };
-    if (field === 'approved' && val) body.fixing = false;
+    if (field === 'approved' && val) { body.fixing = false; body.arrived = false; }
     await apiFetch('clincheck?id=eq.' + id, { method: 'PATCH', body, prefer: 'return=minimal' });
   } catch(e) { console.error(e); }
 }
@@ -463,15 +484,15 @@ function openModal(id) {
     const p = patients.find(p => p.id === id);
     document.getElementById('modal-title').textContent = '患者情報を編集';
     document.getElementById('modal-save-btn').textContent = '更新';
-    document.getElementById('f-name').value = p.name;
+    document.getElementById('f-name').value       = p.name;
     document.getElementById('f-impression').value = p.impression || '';
-    document.getElementById('f-appoint').value = p.appoint || '';
-    document.getElementById('f-deadline').value = p.deadline || '';
-    document.getElementById('f-memo').value = p.memo || '';
+    document.getElementById('f-appoint').value    = p.appoint    || '';
+    document.getElementById('f-deadline').value   = p.deadline   || '';
+    document.getElementById('f-memo').value       = p.memo       || '';
   } else {
     document.getElementById('modal-title').textContent = '患者を追加';
     document.getElementById('modal-save-btn').textContent = '保存';
-    ['f-name','f-impression','f-appoint','f-deadline','f-memo'].forEach(id => document.getElementById(id).value = '');
+    ['f-name','f-impression','f-appoint','f-deadline','f-memo'].forEach(i => document.getElementById(i).value = '');
   }
   document.getElementById('modal').style.display = 'flex';
   setTimeout(() => document.getElementById('f-name').focus(), 50);
@@ -485,16 +506,16 @@ async function savePatient() {
   const body = {
     name,
     impression_date: document.getElementById('f-impression').value || null,
-    appoint_date: document.getElementById('f-appoint').value || null,
-    deadline_date: document.getElementById('f-deadline').value || null,
-    memo: document.getElementById('f-memo').value.trim()
+    appoint_date:    document.getElementById('f-appoint').value    || null,
+    deadline_date:   document.getElementById('f-deadline').value   || null,
+    memo:            document.getElementById('f-memo').value.trim()
   };
   closeModal();
   try {
     if (editingId) {
       await apiFetch('clincheck?id=eq.' + editingId, { method: 'PATCH', body, prefer: 'return=minimal' });
     } else {
-      body.fixing = false; body.approved = false;
+      body.fixing = false; body.approved = false; body.arrived = false;
       await apiFetch('clincheck', { method: 'POST', body });
     }
     await loadPatients();
@@ -509,15 +530,13 @@ function openMemoModal(id) {
   document.getElementById('memo-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('f-memo-edit').focus(), 50);
 }
-
 function closeMemoModal() { document.getElementById('memo-modal').style.display = 'none'; memoEditId = null; }
 
 async function saveMemo() {
   const memo = document.getElementById('f-memo-edit').value.trim();
   const p = patients.find(p => p.id === memoEditId);
   if (p) p.memo = memo;
-  closeMemoModal();
-  render();
+  closeMemoModal(); render();
   try { await apiFetch('clincheck?id=eq.' + memoEditId, { method: 'PATCH', body: { memo }, prefer: 'return=minimal' }); }
   catch(e) { console.error(e); }
 }
@@ -530,4 +549,3 @@ if (SB_URL && SB_KEY) connect();
 </script>
 </body>
 </html>
-
